@@ -1,236 +1,330 @@
-(function(global) {
+(function (global) {
+  // var canvas,gl,program;
+  glUtils.SL.init({callback:function() { main();} });  
+  function main(){
+    window.addEventListener('resize', resize);
+    var canvas=document.getElementById("glcanvas");
+    var gl=glUtils.checkWebGL(canvas);
+    var vertexShader =glUtils.getShader(gl,gl.VERTEX_SHADER,glUtils.SL.Shaders.v1.vertex);
+    var fragmentShader=glUtils.getShader(gl,gl.FRAGMENT_SHADER,glUtils.SL.Shaders.v1.fragment);
+    var vertexShader2 =glUtils.getShader(gl,gl.VERTEX_SHADER,glUtils.SL.Shaders.v2.vertex);
+    var fragmentShader2=glUtils.getShader(gl,gl.FRAGMENT_SHADER,glUtils.SL.Shaders.v2.fragment);
+    resize();
+    var program=glUtils.createProgram(gl,vertexShader,fragmentShader);
+    var program2=glUtils.createProgram(gl,vertexShader2,fragmentShader2);
+    //Huruf
+    var gerakx=Math.random() * 0.0071;
+    var geraky=Math.random()* 0.0071;
+    var gerakz=Math.random()* 0.0071;
+    var gerak=[0,0,0];
+    var rotation=[0,0,0];
+    var rotate=0.05;
+    //Cube
+    var thetaCube = [0,0,0];  
+    var xAxis = 0;
+    var yAxis = 1;
+    var zAxis = 2;
+    gl.useProgram(program2)
+    // Uniform untuk definisi cahaya
+    var lightColorLoc = gl.getUniformLocation(program2, 'lightColor');
+    var lightPositionLoc = gl.getUniformLocation(program2, 'lightPosition');
+    var ambientColorLoc = gl.getUniformLocation(program2, 'ambientColor');
+    var lightColor = [2.0,2.0,2.0];
+    var lightPosition;
+    var ambientColor = glMatrix.vec3.fromValues(0.17, 0.40, 0.81);
+    gl.uniform3fv(lightColorLoc, lightColor);
+    gl.uniform3fv(ambientColorLoc, ambientColor);
+    var vm = glMatrix.mat4.create();
+    var pm = glMatrix.mat4.create();
+    glMatrix.mat4.lookAt(vm,
+      glMatrix.vec3.fromValues(0.0, 0.0, 0.0),    // posisi kamera
+      glMatrix.vec3.fromValues(0.0, 0.0, -2.0),  // titik yang dilihat; pusat kubus akan kita pindah ke z=-2
+      glMatrix.vec3.fromValues(0.0, 1.0, 0.0)   // arah atas dari kamera
+    );
 
-  var canvas, gl, program, program2, shaders=[];
-  var flag=0;
-  
-  glUtils.SL.init({ callback:function() { main(); } });
-
-  function main() {
-    // Register Callbacks
-    window.addEventListener('resize', resizer);
-
-    // Get canvas element and check if WebGL enabled
-    canvas = document.getElementById("glcanvas");
-    gl = glUtils.checkWebGL(canvas);
-
-    // Initialize the shaders and program
-    var vertexShader = glUtils.getShader(gl, gl.VERTEX_SHADER, glUtils.SL.Shaders.v1.vertex),
-        fragmentShader = glUtils.getShader(gl, gl.FRAGMENT_SHADER, glUtils.SL.Shaders.v1.fragment);
-    var vertexShader2 = glUtils.getShader(gl, gl.VERTEX_SHADER, glUtils.SL.Shaders.v2.vertex),
-        fragmentShader2 = glUtils.getShader(gl, gl.FRAGMENT_SHADER, glUtils.SL.Shaders.v2.fragment);
-
-    shaders.push(glUtils.createProgram(gl, vertexShader, fragmentShader));
-    shaders.push(glUtils.createProgram(gl, vertexShader2, fragmentShader2));
-
-    program = glUtils.createProgram(gl, vertexShader, fragmentShader);
-    program2 = glUtils.createProgram(gl, vertexShader2, fragmentShader2);
-
-    thetaLoc = gl.getUniformLocation(program, 'theta'); 
-    transLoc = gl.getUniformLocation(program, 'vec');
-    sizeLoc = gl.getUniformLocation(program, 'size');
-    size = 0.3;
-    theta = [10, 10, 0];
-    vec = [0, 0, 0];
-    xAdder = 0.0081;
-    yAdder = 0.0099;
-    zAdder = 0.053;
-    adder = 0.81;
-
-    thetaLoc2 = gl.getUniformLocation(program2, 'theta');
-    theta2 = [10, 20, 0];
-
-    resizer();
-  }
-
-  function cube(){
+    var fovy = glMatrix.glMatrix.toRadian(90.0);
+    var aspect = canvas.width / canvas.height;
+    var near = 0.01;
+    var far = 10.0;
+    glMatrix.mat4.perspective(pm,
+      fovy,
+      aspect,
+      near,
+      far
+    );
+    // Definisi view, model, dan projection
+    var vmLoc = gl.getUniformLocation(program2, 'view');
+    var pmLoc = gl.getUniformLocation(program2, 'projection');
+    var mmLoc = gl.getUniformLocation(program2, 'model');
+    gl.uniformMatrix4fv(vmLoc, false, vm);
+    gl.uniformMatrix4fv(pmLoc, false, pm);
+    function resize(){
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    }
+    var lastX, lastY, dragging;
+    function onMouseDown(event) {
+      var x = event.clientX;
+      var y = event.clientY;
+      var rect = event.target.getBoundingClientRect();
+      if (rect.left <= x &&
+          rect.right > x &&
+          rect.top <= y &&
+          rect.bottom > y) {
+            lastX = x;
+            lastY = y;
+            dragging = true;
+      }
+    }
+    function onMouseUp(event) {
+      dragging = false;
+    }
+    function onMouseMove(event) {
+      var x = event.clientX;
+      var y = event.clientY;
+      if (dragging) {
+        var factor = 10 / canvas.height;
+        var dx = factor * (x - lastX);
+        var dy = factor * (y - lastY);
+        thetaCube[yAxis] += dx;
+        thetaCube[xAxis] += dy;
+      }
+      lastX = x;
+      lastY = y;
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('mousemove', onMouseMove);
+    render();   
     gl.useProgram(program2);
-
-    var CubeVertices = [
-      // x, y, z             r, g, b
-
-      //ABCD
-      -0.5, -0.5, 0.5,    1.0, 0.0, 0.0,    //A
-      -0.5, 0.5, 0.5,     1.0, 0.0, 0.0,    //B
-      -0.5, 0.5, 0.5,     1.0, 0.0, 0.0,    //B
-      0.5, 0.5, 0.5,      1.0, 0.0, 0.0,    //C
-
-      0.5, 0.5, 0.5,      0.0, 1.0, 0.0,    //C
-      0.5, -0.5, 0.5,     0.0, 1.0, 0.0,    //D
-      0.5, -0.5, 0.5,     0.0, 1.0, 0.0,    //D
-      -0.5, -0.5, 0.5,    0.0, 1.0, 0.0,    //A
-      
-      //DCGH
-      0.5, 0.5, 0.5,      0.0, 0.0, 1.0,    //C
-      0.5, 0.5, -0.5,     0.0, 0.0, 1.0,    //G
-      0.5, -0.5, 0.5,     0.0, 0.0, 1.0,    //D
-      0.5, -0.5, -0.5,    0.0, 0.0, 1.0,    //H
-
-      //ABFE
-      -0.5, -0.5, 0.5,    1.0, 1.0, 0.0,    //A
-      -0.5, -0.5, -0.5,   1.0, 1.0, 0.0,    //E
-      -0.5, 0.5, 0.5,     1.0, 1.0, 0.0,    //B
-      -0.5, 0.5, -0.5,    1.0, 1.0, 0.0,    //F
-
-      //EFGH
-      -0.5, -0.5, -0.5,   0.0, 1.0, 1.0,    //E
-      -0.5, 0.5, -0.5,    0.0, 1.0, 1.0,    //F
-      -0.5, 0.5, -0.5,    0.0, 1.0, 1.0,    //F
-      0.5, 0.5, -0.5,     0.0, 1.0, 1.0,    //G
-
-      0.5, 0.5, -0.5,     1.0, 0.0, 1.0,    //G
-      0.5, -0.5, -0.5,    1.0, 0.0, 1.0,    //H
-      0.5, -0.5, -0.5,    1.0, 0.0, 1.0,    //H
-      -0.5, -0.5, -0.5,   1.0, 0.0, 1.0,    //E
-    ];
-
-    var CubeVertexBufferObject = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, CubeVertexBufferObject);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(CubeVertices), gl.STATIC_DRAW);
-
-    var vPosition = gl.getAttribLocation(program2, 'vPosition');
-    var vColor = gl.getAttribLocation(program2, 'vColor');
-    gl.vertexAttribPointer(
-      vPosition,  // variabel yang memegang posisi attribute di shader
-      3,          // jumlah elemen per attribute
-      gl.FLOAT,   // tipe data atribut
-      gl.FALSE,
-      6 * Float32Array.BYTES_PER_ELEMENT, // ukuran byte tiap verteks 
-      0                                   // offset dari posisi elemen di array
-    );
-    gl.vertexAttribPointer(vColor, 3, gl.FLOAT, gl.FALSE, 
-      6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
-
-    gl.enableVertexAttribArray(vPosition);
-    gl.enableVertexAttribArray(vColor);
-
-    gl.uniform3fv(thetaLoc2, theta2);
-
-  }
-
-  function triangle(){
-    gl.useProgram(program);
-
-    // Definisi vertex and buffer
-    var triangleVertices = [
-      //x,y         r,g,b
-      -0.9, +0.8, 0.0, 0.0, 1.0,
-      -0.5, +0.8, 0.0, 0.0, 1.0,
-      -0.5, +0.8, 0.0, 0.0, 1.0,
-      -0.3, +0.5,0.0, 0.0, 1.0,
-      -0.3, +0.5, 0.0, 0.0, 1.0,
-      -0.3, +0.3,0.0, 0.0, 1.0,
-      -0.3, +0.3, 0.0, 0.0, 1.0,
-      -0.5, +0.1,0.0, 0.0, 1.0,
-      -0.5, +0.1, 0.0, 0.0, 1.0,
-      -0.3, -0.2,0.0, 0.0, 1.0,
-      -0.3, -0.2, 0.0, 0.0, 1.0,
-      -0.3, -0.4,0.0, 0.0, 1.0,
-      -0.3, -0.4, 0.0, 0.0, 1.0,
-      -0.5, -0.6,0.0, 0.0, 1.0,
-      -0.5, -0.6, 0.0, 0.0, 1.0,
-      -0.9, -0.6,0.0, 0.0, 1.0,
-      -0.9, -0.6, 0.0, 0.0, 1.0,
-      -0.9, +0.8,0.0, 0.0, 1.0,
-
-      -0.8, +0.6, 0.0, 0.0, 1.0,
-      -0.55, +0.6, 0.0, 0.0, 1.0,
-      -0.55, +0.6, 0.0, 0.0, 1.0,
-      -0.45, +0.45, 0.0, 0.0, 1.0,
-      -0.45, +0.45, 0.0, 0.0, 1.0,
-      -0.45, +0.4, 0.0, 0.0, 1.0,
-      -0.45, +0.4, 0.0, 0.0, 1.0,
-      -0.55, +0.3, 0.0, 0.0, 1.0,
-      -0.55, +0.3, 0.0, 0.0, 1.0,
-      -0.8, +0.3,0.0, 0.0, 1.0,
-      -0.8, +0.3, 0.0, 0.0, 1.0,
-      -0.8, +0.6, 0.0, 0.0, 1.0,
-
-      -0.8, -0.1, 0.0, 0.0, 1.0,
-      -0.55, -0.1, 0.0, 0.0, 1.0,
-      -0.55, -0.1, 0.0, 0.0, 1.0,
-      -0.45, -0.25, 0.0, 0.0, 1.0,
-      -0.45, -0.25, 0.0, 0.0, 1.0,
-      -0.45, -0.3, 0.0, 0.0, 1.0,
-      -0.45, -0.3, 0.0, 0.0, 1.0,
-      -0.55, -0.4, 0.0, 0.0, 1.0,
-      -0.55, -0.4, 0.0, 0.0, 1.0,
-      -0.8, -0.4,0.0, 0.0, 1.0,
-      -0.8, -0.4, 0.0, 0.0, 1.0,
-      -0.8, -0.1, 0.0, 0.0, 1.0
-    ];
-
-    var triangleVertexBufferObject = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexBufferObject);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangleVertices), gl.STATIC_DRAW);
-
-    var vPosition = gl.getAttribLocation(program, 'vPosition');
-    var vColor = gl.getAttribLocation(program, 'vColor');
-
-    gl.vertexAttribPointer(
-      vPosition, 2, gl.FLOAT, gl.FALSE, 5 * Float32Array.BYTES_PER_ELEMENT, 0
-    );
-    gl.vertexAttribPointer(
-      vColor, 3, gl.FLOAT, gl.FALSE, 5 * Float32Array.BYTES_PER_ELEMENT, 2 * Float32Array.BYTES_PER_ELEMENT
-    );
-
-    gl.uniform1f(sizeLoc, size);
-
-    //Hit the Wall
-
-    if(vec[0] > 0.5*(1-size) || vec[0] < -0.5*(1-size) ){
-      xAdder = xAdder * -1;
+    // Uniform untuk tekstur
+    var sampler0Loc = gl.getUniformLocation(program2, 'sampler0');
+    gl.uniform1i(sampler0Loc, 0);
+    // Inisialisasi tekstur
+    var texture = gl.createTexture();
+    if (!texture) {
+      reject(new Error('Gagal membuat objek tekstur'));
     }
-    vec[0] += xAdder;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    // Sementara warnai tekstur dengan sebuah 1x1 piksel biru
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+    initTexture(function () {
+      render();
+    });
+    function cube(){
+      gl.useProgram(program2);
+      var cubeVertices = [
+        // x, y, z            u, v         normal
 
-    if(vec[1] > 0.5*(1-size) || vec[1] < -0.5*(1-size) ){
-      yAdder = yAdder * -1;
-    }
-    vec[1] += yAdder;
+        0.5,  0.5,  0.5,     0.0, 0.5,  1.0, 0.0, 0.0, 
+        0.5, -0.5,  0.5,     0.0, 0.0,  1.0, 0.0, 0.0,
+        0.5, -0.5, -0.5,     0.33, 0.0,  1.0, 0.0, 0.0,
+        0.5,  0.5,  0.5,     0.0, 0.5,  1.0, 0.0, 0.0,
+        0.5, -0.5, -0.5,     0.33, 0.0,  1.0, 0.0, 0.0,
+        0.5,  0.5, -0.5,     0.33, 0.5,  1.0, 0.0, 0.0,
 
-    if(vec[2] > 0.5*(1-size) || vec[2] < -0.5*(1-size) ){
-      zAdder = zAdder * -1;
-    }
-    vec[2] += zAdder;
+        0.5, -0.5,  0.5,     0.33, 0.5,  0.0, -1.0, 0.0, 
+        -0.5, -0.5,  0.5,     0.33, 0,  0.0, -1.0, 0.0,
+        -0.5, -0.5, -0.5,     0.66, 0,  0.0, -1.0, 0.0,
+        0.5, -0.5,  0.5,     0.33, 0.5,  0.0, -1.0, 0.0,
+        -0.5, -0.5, -0.5,     0.66, 0,  0.0, -1.0, 0.0,
+        0.5, -0.5, -0.5,     0.66, 0.5,  0.0, -1.0, 0.0,
 
-    gl.uniform3fv(transLoc, vec);
+        -0.5, -0.5, -0.5,     0.66, 0.5,  0.0, 0.0, -1.0, 
+        -0.5,  0.5, -0.5,     0.66, 0.0,  0.0, 0.0, -1.0,
+        0.5,  0.5, -0.5,     1.0, 0.0,  0.0, 0.0, -1.0,
+        -0.5, -0.5, -0.5,     0.66, 0.5,  0.0, 0.0, -1.0,
+        0.5,  0.5, -0.5,     1.0, 0.0,  0.0, 0.0, -1.0,
+        0.5, -0.5, -0.5,     1.0, 0.5,  0.0, 0.0, -1.0,
 
-    // gl.enableVertexAttribArray(vPosition);
-    // gl.enableVertexAttribArray(vColor);
+        -0.5,  0.5, -0.5,     0.0, 1.0,  -1.0, 0.0, 0.0, 
+        -0.5, -0.5, -0.5,     0.0, 0.5,  -1.0, 0.0, 0.0,
+        -0.5, -0.5,  0.5,     0.33, 0.5,  -1.0, 0.0, 0.0,
+        -0.5,  0.5, -0.5,     0.0, 1.0,  -1.0, 0.0, 0.0,
+        -0.5, -0.5,  0.5,     0.33, 0.5,  -1.0, 0.0, 0.0,
+        -0.5,  0.5,  0.5,     0.33, 1.0,  -1.0, 0.0, 0.0,
 
-    //Y Rotation
-
-    theta[1] += ( adder * 3 );
-
-    gl.uniform3fv(thetaLoc, theta);
-  }
-
-
-  function resizer() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    if(flag==0)
-    {
-        render();
-        flag=1;
-    }  
-  }
-
-  function render() {
-    // Bersihkan layar jadi hitam
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.enable(gl.DEPTH_TEST);
-    
-    // Bersihkan buffernya canvas
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
-    triangle();
-    gl.drawArrays(gl.LINES, 0, 42);
-
-    cube();
-    gl.drawArrays(gl.LINES, 0, 24);
-
-    requestAnimationFrame(render);
-  }
+        0.5,  0.5, -0.5,     0.33, 1.0,  0.0, 1.0, 0.0, 
+        -0.5,  0.5, -0.5,     0.33, 0.5,  0.0, 1.0, 0.0,
+        -0.5,  0.5,  0.5,     0.66, 0.5,  0.0, 1.0, 0.0,
+        0.5,  0.5, -0.5,     0.33, 1.0,  0.0, 1.0, 0.0,
+        -0.5,  0.5,  0.5,     0.66, 0.5,  0.0, 1.0, 0.0,
+        0.5,  0.5,  0.5,     0.66, 1.0,  0.0, 1.0, 0.0
+      ];
   
+      var cubeVBO = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, cubeVBO);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertices), gl.STATIC_DRAW);
+  
+      var vPosition = gl.getAttribLocation(program2, 'vPosition');
+      var vTexCoord = gl.getAttribLocation(program2, 'vTexCoord');
+      var vNormal = gl.getAttribLocation(program2, 'vNormal');
+      gl.vertexAttribPointer(
+        vPosition,  // variabel yang memegang posisi attribute di shader
+        3,          // jumlah elemen per attribute
+        gl.FLOAT,   // tipe data atribut
+        gl.FALSE,
+        8 * Float32Array.BYTES_PER_ELEMENT, // ukuran byte tiap verteks 
+        0                                   // offset dari posisi elemen di array
+      );
+      gl.vertexAttribPointer(vTexCoord, 2, gl.FLOAT, gl.FALSE, 
+        8 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+      gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, gl.FALSE, 
+          8 * Float32Array.BYTES_PER_ELEMENT, 5 * Float32Array.BYTES_PER_ELEMENT);
+  
+      gl.enableVertexAttribArray(vPosition);
+      gl.enableVertexAttribArray(vTexCoord);
+      gl.enableVertexAttribArray(vNormal);
+      var nmLoc = gl.getUniformLocation(program2, 'normalMatrix');
+     
+      var mm = glMatrix.mat4.create();
+      glMatrix.mat4.translate(mm, mm, [0.0, 0.0, -2.0]);
+      glMatrix.mat4.rotateY(mm, mm, thetaCube[yAxis]);
+      glMatrix.mat4.rotateX(mm, mm, thetaCube[xAxis]);
+      glMatrix.mat4.rotateZ(mm, mm, thetaCube[zAxis]);
+      gl.uniformMatrix4fv(mmLoc, false, mm);
+      var nm = glMatrix.mat3.create();
+      glMatrix.mat3.normalFromMat4(nm, mm);
+      gl.uniformMatrix3fv(nmLoc, false, nm);
+      gl.drawArrays(gl.TRIANGLES, 0,30);
+    }
+    function rendersegitiga(){
+      gl.useProgram(program);
+      var vertices = [
+        // x, y       r, g, b   x'=x-0.6
+        +0.1, +0.5, 0,
+        +0.2, +0.5, 0,
+        +0.2, -0.6, 0,
+
+        +0.1, +0.5, 0,
+        +0.1, -0.6, 0,
+        +0.2, -0.6, 0,
+
+        +0.1, -0.6, 0,
+        +0.1, -0.5, 0,
+        +0.6, -0.5, 0,
+        
+        +0.1, -0.6, 0,
+        +0.5, -0.6, 0,
+        +0.6, -0.5, 0,
+
+        +0.6, -0.6, 0,
+        +0.5, -0.6, 0,
+        +0.7, -0.3, 0,
+
+        +0.7, -0.3, 0,
+        +0.6, -0.3, 0,
+        +0.5, -0.6, 0,
+
+        +0.7, -0.3, 0,
+        +0.6, -0.3, 0,
+        +0.5, 0.0, 0,
+
+        +0.7, -0.3, 0,
+        +0.6, 0.0, 0,
+        +0.5, 0.0, 0,
+
+        +0.1, 0.0, 0,
+        +0.1, -0.1, 0,
+        +0.6, -0.1, 0,
+        
+        +0.1, 0.0, 0,
+        +0.6, -0.1, 0,
+        +0.6, 0.0, 0
+      ];
+      matrixScaling(vertices,0.1);
+      lightPosition = [gerak[0],gerak[1],-2+gerak[2]];
+      var vertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+      var aPosition = gl.getAttribLocation(program, 'aPosition');
+      gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, gl.FALSE, 3 * Float32Array.BYTES_PER_ELEMENT, 0);
+      gl.enableVertexAttribArray(aPosition);
+      if(gerak[0]+0.2> 0.5 || gerak[0]-0.2 <-0.5){
+        gerakx*=-1;
+        rotate*=-1;
+      }
+      gerak[0]+=gerakx;
+      rotation[0]+=rotate;
+      lightPosition[0]+=gerakx;
+      if(gerak[1]+0.2 > 0.5 || gerak[1]-0.2 <-0.5){
+        geraky*=-1;
+        rotate*=-1;
+      }
+      gerak[1]+=geraky;
+      rotation[1]+=rotate;
+      lightPosition[1]+=geraky;
+      if(gerak[2]+0.05 > 0.5  || gerak[2]-0.05 <-0.5){
+        gerakz*=-1;
+        rotate*=-1;
+      }
+      gerak[2]+=gerakz;
+      rotation[2]+=rotate;
+      lightPosition[2]+=gerakz;
+      var vmLoc2 = gl.getUniformLocation(program, 'view');
+      var pmLoc2 = gl.getUniformLocation(program, 'projection');
+      var mmLoc = gl.getUniformLocation(program, 'model');
+      gl.uniformMatrix4fv(vmLoc2, false, vm);
+      gl.uniformMatrix4fv(pmLoc2, false, pm);
+      var mm = glMatrix.mat4.create();
+      glMatrix.mat4.translate(mm, mm, [0.0, 0.0, -2.0]);
+      glMatrix.mat4.translate(mm,mm,gerak);
+      gl.uniformMatrix4fv(mmLoc, false, mm);
+      gl.drawArrays(gl.TRIANGLES,0,30);
+      var mvpLoc=gl.getUniformLocation(program,'mvp');
+      var mvp=glMatrix.mat4.create();
+      glMatrix.mat4.multiply(mvp,vm,mm);
+      glMatrix.mat4.multiply(mvp,pm,mvp);
+      glMatrix.mat4.rotateX(mvp,mvp,rotation[xAxis]);
+      glMatrix.mat4.rotateY(mvp,mvp,rotation[yAxis]);
+      gl.uniformMatrix4fv(mvpLoc, false, mvp);
+    }
+    function render(){
+      requestAnimationFrame(render);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.enable(gl.DEPTH_TEST);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      cube();
+      rendersegitiga();
+      gl.useProgram(program2);
+      gl.uniform3fv(lightPositionLoc, lightPosition); 
+    } 
+    // Membuat mekanisme pembacaan gambar jadi tekstur
+    function initTexture(callback, args) {
+      var imageSource = 'images/Bimbim.png';
+      var promise = new Promise(function(resolve, reject) {
+        var image = new Image();
+        if (!image) {
+          reject(new Error('Gagal membuat objek gambar'));
+        }
+        image.onload = function() {
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+          resolve('Sukses');
+        }
+        image.src = imageSource;
+      });
+      promise.then(function() {
+        if (callback) {
+          callback(args);
+        }
+      }, function (error) {
+        console.log('Gagal memuat gambar', error);
+      });
+    }
+
+      function matrixScaling(matrix, size) {
+        for (var i = 0; i < matrix.length; i++) {
+            matrix[i] *= size
+        }
+        return matrix
+    }
+  }
+
 })(window || this);
